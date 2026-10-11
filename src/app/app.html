@@ -1,0 +1,88 @@
+<div class="card-container">
+  <div class="header">
+    <h2>BACKUS VENTAS PWA</h2>
+  </div>
+  <div class="content">
+    @if (online) {
+      <div class="estado conectado">
+        Estado: 🟢 CONECTADO
+      </div>
+
+      <div class="seccion">
+        <label class="titulo-seccion">Catálogo</label>
+
+        <ul class="lista-catalogo">
+          @for (prod of catalogo; track prod.id) {
+            <li>
+              <span>{{ prod.producto }}</span>
+              <span class="precio">S/ {{ prod.precio.toFixed(2) }}</span>
+            </li>
+          }
+        </ul>
+
+        <div class="selector-producto">
+          <label for="prodSelect">Seleccionar Producto:</label>
+          <select id="prodSelect" [(ngModel)]="productoSeleccionadoId">
+            @if (catalogo.length === 0) {
+              <option [ngValue]="null" disabled selected>Cargando catálogo...</option>
+            }
+            @for (prod of catalogo; track prod.id) {
+              <option [ngValue]="prod.id">{{ prod.producto }} - S/ {{ prod.precio.toFixed(2) }}</option>
+            }
+          </select>
+        </div>
+
+        <button class="btn-primary" [disabled]="catalogo.length === 0" (click)="registrarPedido()">[ Registrar pedido ]</button>
+      </div>
+
+      <div class="seccion">
+        <label class="titulo-seccion">Mensaje</label>
+        <input
+          type="text"
+          class="input-texto"
+          placeholder="Escriba un mensaje..."
+          [(ngModel)]="mensajeTexto"
+        />
+        <button class="btn-secondary" (click)="guardarMensaje()">[ Guardar ]</button>
+      </div>
+    } @else {
+      <div class="estado desconectado">
+        Estado: 🔴 SIN CONEXIÓN
+      </div>
+
+      <div class="seccion offline-info">
+        <p class="txt-sub">Catálogo disponible</p>
+        <p class="txt-sub highlight">desde caché</p>
+
+        <ul class="lista-catalogo min-catalogo">
+          @for (prod of catalogo; track prod.id) {
+            <li>
+              <span>{{ prod.producto }}</span>
+              <span class="precio">S/ {{ prod.precio.toFixed(2) }}</span>
+            </li>
+          }
+        </ul>
+
+        <button class="btn-primary" [disabled]="catalogo.length === 0" (click)="registrarPedido()">[ Registrar pedido ]</button>
+      </div>
+
+      <div class="seccion">
+        <label class="titulo-seccion">Mensaje Offline</label>
+        <input
+          type="text"
+          class="input-texto"
+          placeholder="Escriba mensaje offline..."
+          [(ngModel)]="mensajeTexto"
+        />
+        <button class="btn-secondary" (click)="guardarMensaje()">[ Guardar ]</button>
+      </div>
+    }
+
+    @if (mensajeNotificacion) {
+      <div class="notificacion-offline">
+        <p>{{ mensajeNotificacion }}</p>
+        <p class="estado-tag">Estado: <strong>{{ estadoPedidoNotif }}</strong></p>
+      </div>
+    }
+  </div>
+</div>

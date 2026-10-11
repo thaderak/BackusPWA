@@ -1,0 +1,34 @@
+{
+  "$schema": "./node_modules/@angular/service-worker/config/schema.json",
+  "index": "/index.html",
+  "assetGroups": [
+    {
+      "name": "app",
+      "installMode": "prefetch",
+      "resources": {
+        "files": [
+          "/favicon.ico",
+          "/index.html",
+          "/manifest.webmanifest",
+          "/*.css",
+          "/*.js",
+          "/icons/**"
+        ]
+      }
+    }
+  ],
+  "dataGroups": [
+    {
+      "name": "catalogo",
+      "urls": [
+        "/data/catalogo.json",
+        "/assets/data/catalogo.json"
+      ],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 20,
+        "maxAge": "1d"
+      }
+    }
+  ]
+}
