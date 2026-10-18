@@ -1,88 +1,442 @@
-<div class="card-container">
-  <div class="header">
-    <h2>BACKUS VENTAS PWA</h2>
-  </div>
-  <div class="content">
-    @if (online) {
-      <div class="estado conectado">
-        Estado: 🟢 CONECTADO
+<div class="app-layout">
+  <!-- ENCABEZADO CORPORATIVO PROFESIONAL -->
+  <header class="header">
+    <div class="header-container">
+      <div class="brand">
+        <h2>BACKUS VENTAS</h2>
+        <p class="subtitle">Portal Comercial de Distribución</p>
       </div>
 
-      <div class="seccion">
-        <label class="titulo-seccion">Catálogo</label>
-
-        <ul class="lista-catalogo">
-          @for (prod of catalogo; track prod.id) {
-            <li>
-              <span>{{ prod.producto }}</span>
-              <span class="precio">S/ {{ prod.precio.toFixed(2) }}</span>
-            </li>
-          }
-        </ul>
-
-        <div class="selector-producto">
-          <label for="prodSelect">Seleccionar Producto:</label>
-          <select id="prodSelect" [(ngModel)]="productoSeleccionadoId">
-            @if (catalogo.length === 0) {
-              <option [ngValue]="null" disabled selected>Cargando catálogo...</option>
-            }
-            @for (prod of catalogo; track prod.id) {
-              <option [ngValue]="prod.id">{{ prod.producto }} - S/ {{ prod.precio.toFixed(2) }}</option>
-            }
-          </select>
+      <!-- NUEVO DISEÑO DE ESTADO DE CONEXIÓN MODERNO -->
+      <div class="status-badge" [class.is-online]="online" [class.is-offline]="!online">
+        <span class="status-pulse"></span>
+        <div class="status-info">
+          <span class="status-title">{{ online ? 'En Línea' : 'Sin Conexión' }}</span>
+          <span class="status-desc">{{ online ? 'Modo Local' : 'Caché Activa' }}</span>
         </div>
-
-        <button class="btn-primary" [disabled]="catalogo.length === 0" (click)="registrarPedido()">[ Registrar pedido ]</button>
       </div>
+    </div>
+  </header>
 
-      <div class="seccion">
-        <label class="titulo-seccion">Mensaje</label>
-        <input
-          type="text"
-          class="input-texto"
-          placeholder="Escriba un mensaje..."
-          [(ngModel)]="mensajeTexto"
-        />
-        <button class="btn-secondary" (click)="guardarMensaje()">[ Guardar ]</button>
-      </div>
-    } @else {
-      <div class="estado desconectado">
-        Estado: 🔴 SIN CONEXIÓN
-      </div>
+  <!-- NAVEGACIÓN POR PESTAÑAS RESPONSIVE -->
+  <nav class="nav-tabs">
+    <div class="nav-container">
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="pestanaActiva === 'catalogo'"
+        (click)="pestanaActiva = 'catalogo'"
+      >
+        <i class="bi bi-grid-3x3-gap-fill"></i>
+        <span>Catálogo</span>
+      </button>
 
-      <div class="seccion offline-info">
-        <p class="txt-sub">Catálogo disponible</p>
-        <p class="txt-sub highlight">desde caché</p>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="pestanaActiva === 'carrito'"
+        (click)="pestanaActiva = 'carrito'"
+      >
+        <i class="bi bi-cart3"></i>
+        <span>Carrito</span>
+        @if (totalArticulos > 0) {
+          <span class="badge-count">{{ totalArticulos }}</span>
+        }
+      </button>
 
-        <ul class="lista-catalogo min-catalogo">
-          @for (prod of catalogo; track prod.id) {
-            <li>
-              <span>{{ prod.producto }}</span>
-              <span class="precio">S/ {{ prod.precio.toFixed(2) }}</span>
-            </li>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="pestanaActiva === 'historial'"
+        (click)="pestanaActiva = 'historial'"
+      >
+        <i class="bi bi-clock-history"></i>
+        <span>Historial</span>
+        @if (historialPedidos.length > 0) {
+          <span class="badge-count secondary">{{ historialPedidos.length }}</span>
+        }
+      </button>
+    </div>
+  </nav>
+
+  <!-- NOTIFICACIÓN GLOBAL -->
+  @if (mensajeNotificacion) {
+    <div class="alerta-wrapper">
+      <div class="alerta-box" [ngClass]="tipoNotificacion">
+        <div class="alerta-content">
+          @if (tipoNotificacion === 'exito') {
+            <i class="bi bi-check-circle-fill alerta-icono"></i>
+          } @else if (tipoNotificacion === 'error') {
+            <i class="bi bi-exclamation-triangle-fill alerta-icono"></i>
+          } @else {
+            <i class="bi bi-info-circle-fill alerta-icono"></i>
           }
-        </ul>
-
-        <button class="btn-primary" [disabled]="catalogo.length === 0" (click)="registrarPedido()">[ Registrar pedido ]</button>
+          <p>{{ mensajeNotificacion }}</p>
+        </div>
+        <button type="button" class="btn-cerrar-alerta" (click)="mensajeNotificacion = ''" title="Cerrar">
+          <i class="bi bi-x-lg"></i>
+        </button>
       </div>
+    </div>
+  }
 
-      <div class="seccion">
-        <label class="titulo-seccion">Mensaje Offline</label>
-        <input
-          type="text"
-          class="input-texto"
-          placeholder="Escriba mensaje offline..."
-          [(ngModel)]="mensajeTexto"
-        />
-        <button class="btn-secondary" (click)="guardarMensaje()">[ Guardar ]</button>
-      </div>
-    }
+  <!-- CONTENIDO PRINCIPAL FLUIDO Y RESPONSIVE -->
+  <main class="main-content">
+    <div class="content-container">
 
-    @if (mensajeNotificacion) {
-      <div class="notificacion-offline">
-        <p>{{ mensajeNotificacion }}</p>
-        <p class="estado-tag">Estado: <strong>{{ estadoPedidoNotif }}</strong></p>
-      </div>
-    }
-  </div>
+      <!-- ==================== PESTAÑA 1: CATÁLOGO ==================== -->
+      @if (pestanaActiva === 'catalogo') {
+        <section class="seccion-catalogo">
+          <!-- BARRA DE BÚSQUEDA Y FILTROS -->
+          <div class="filtros-panel">
+            <div class="busqueda-wrapper">
+              <i class="bi bi-search icono-busqueda"></i>
+              <input
+                type="text"
+                class="input-busqueda"
+                placeholder="Buscar por nombre de producto..."
+                [(ngModel)]="terminoBusqueda"
+              />
+              @if (terminoBusqueda) {
+                <button type="button" class="btn-clear" (click)="terminoBusqueda = ''" title="Borrar búsqueda">
+                  <i class="bi bi-x-circle-fill"></i>
+                </button>
+              }
+            </div>
+
+            <div class="categorias-wrapper">
+              <span class="label-cat">Categorías:</span>
+              <div class="chips-categorias">
+                @for (cat of categoriasDisponibles; track cat) {
+                  <button
+                    type="button"
+                    class="chip-cat"
+                    [class.active]="categoriaSeleccionada === cat"
+                    (click)="categoriaSeleccionada = cat"
+                  >
+                    {{ cat }}
+                  </button>
+                }
+                @if (terminoBusqueda || categoriaSeleccionada !== 'Todas') {
+                  <button type="button" class="btn-limpiar-filtros" (click)="limpiarFiltros()">
+                    <i class="bi bi-arrow-counterclockwise"></i> Limpiar filtros
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+
+          @if (!online) {
+            <div class="offline-banner">
+              <i class="bi bi-wifi-off"></i>
+              <span><strong>Modo sin conexión:</strong> Visualizando catálogo almacenado localmente en caché.</span>
+            </div>
+          }
+
+          <!-- GRID DE PRODUCTOS RESPONSIVE -->
+          @if (cargandoCatalogo) {
+            <div class="mensaje-vacio">
+              <div class="spinner"></div>
+              <p>Cargando catálogo...</p>
+            </div>
+          } @else if (productosFiltrados.length === 0) {
+            <div class="mensaje-vacio">
+              <i class="bi bi-search vacio-icono"></i>
+              <p>No se encontraron productos coincidentes.</p>
+              <button type="button" class="btn-secondary-sm" (click)="limpiarFiltros()">
+                Restablecer búsqueda
+              </button>
+            </div>
+          } @else {
+            <div class="grid-productos">
+              @for (prod of productosFiltrados; track prod.id) {
+                <article class="card-producto">
+                  <div class="prod-badge-row">
+                    <span class="prod-cat-tag">{{ prod.categoria }}</span>
+                    <span class="prod-precio">S/ {{ prod.precio.toFixed(2) }}</span>
+                  </div>
+
+                  <h3 class="prod-nombre">{{ prod.producto }}</h3>
+
+                  <div class="prod-footer">
+                    <div class="control-cantidad">
+                      <button
+                        type="button"
+                        class="btn-cant"
+                        (click)="decrementarCantidadCatalogo(prod.id)"
+                        [disabled]="(cantidadesCatalogo[prod.id] || 1) <= 1"
+                        title="Disminuir"
+                      >
+                        <i class="bi bi-dash"></i>
+                      </button>
+                      <input
+                        type="number"
+                        class="input-cant"
+                        min="1"
+                        step="1"
+                        [(ngModel)]="cantidadesCatalogo[prod.id]"
+                      />
+                      <button
+                        type="button"
+                        class="btn-cant"
+                        (click)="incrementarCantidadCatalogo(prod.id)"
+                        title="Aumentar"
+                      >
+                        <i class="bi bi-plus"></i>
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="btn-add-carrito"
+                      (click)="agregarAlCarrito(prod)"
+                    >
+                      <i class="bi bi-plus-circle"></i> Agregar
+                    </button>
+                  </div>
+                </article>
+              }
+            </div>
+          }
+        </section>
+      }
+
+      <!-- ==================== PESTAÑA 2: CARRITO / RESUMEN ==================== -->
+      @if (pestanaActiva === 'carrito') {
+        <section class="seccion-carrito">
+          <div class="seccion-titulo-row">
+            <h2>Resumen del Pedido</h2>
+            @if (carrito.length > 0) {
+              <span class="items-count-badge">{{ totalArticulos }} producto(s)</span>
+            }
+          </div>
+
+          @if (carrito.length === 0) {
+            <div class="mensaje-vacio">
+              <i class="bi bi-cart-x vacio-icono"></i>
+              <p>El carrito de compras está vacío.</p>
+              <p class="txt-sub">Seleccione productos del catálogo para armar su pedido.</p>
+              <button type="button" class="btn-primary" (click)="pestanaActiva = 'catalogo'">
+                <i class="bi bi-grid-3x3-gap-fill"></i> Ir al Catálogo
+              </button>
+            </div>
+          } @else {
+            <div class="tabla-carrito-wrapper">
+              <table class="tabla-carrito">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th class="txt-center">Precio Unit.</th>
+                    <th class="txt-center">Cantidad</th>
+                    <th class="txt-right">Subtotal</th>
+                    <th class="txt-center">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of carrito; track item.productoId) {
+                    <tr>
+                      <td class="prod-cell">
+                        <strong>{{ item.producto }}</strong>
+                      </td>
+                      <td class="txt-center">S/ {{ item.precioUnitario.toFixed(2) }}</td>
+                      <td class="txt-center">
+                        <div class="mini-control-cant">
+                          <button
+                            type="button"
+                            class="btn-mini"
+                            (click)="modificarCantidadCarrito(item.productoId, -1)"
+                            title="Disminuir"
+                          >
+                            <i class="bi bi-dash"></i>
+                          </button>
+                          <span class="cant-badge">{{ item.cantidad }}</span>
+                          <button
+                            type="button"
+                            class="btn-mini"
+                            (click)="modificarCantidadCarrito(item.productoId, 1)"
+                            title="Aumentar"
+                          >
+                            <i class="bi bi-plus"></i>
+                          </button>
+                        </div>
+                      </td>
+                      <td class="txt-right subtotal-col">
+                        S/ {{ item.subtotal.toFixed(2) }}
+                      </td>
+                      <td class="txt-center">
+                        <button
+                          type="button"
+                          class="btn-eliminar-item"
+                          title="Eliminar producto"
+                          (click)="eliminarLineaCarrito(item.productoId)"
+                        >
+                          <i class="bi bi-trash3"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+
+            <!-- RESUMEN FINANCIERO -->
+            <div class="resumen-financiero">
+              <div class="fila-total">
+                <span class="label-total">Total a Liquidar:</span>
+                <span class="monto-total">S/ {{ totalCarrito.toFixed(2) }}</span>
+              </div>
+              <p class="nota-importes">Importes calculados con redondeo a dos decimales.</p>
+            </div>
+
+            <div class="acciones-pedido">
+              <button type="button" class="btn-primary-lg" (click)="confirmarPedido()">
+                <i class="bi bi-check2-circle"></i> Registrar Pedido
+              </button>
+              <button type="button" class="btn-vaciar" (click)="vaciarCarrito()">
+                <i class="bi bi-trash3"></i> Vaciar Pedido
+              </button>
+            </div>
+
+            <div class="aviso-info">
+              <i class="bi bi-shield-check"></i>
+              <p>
+                <strong>Persistencia Local:</strong> Este pedido se guardará en la base de datos
+                local del dispositivo y permanecerá en estado <strong>PENDIENTE</strong> para su
+                posterior sincronización.
+              </p>
+            </div>
+          }
+        </section>
+      }
+
+      <!-- ==================== PESTAÑA 3: HISTORIAL ==================== -->
+      @if (pestanaActiva === 'historial') {
+        <section class="seccion-historial">
+          <div class="seccion-titulo-row">
+            <h2>Historial de Pedidos Locales</h2>
+            <span class="items-count-badge">{{ historialPedidos.length }} registrado(s)</span>
+          </div>
+
+          @if (historialPedidos.length === 0) {
+            <div class="mensaje-vacio">
+              <i class="bi bi-journal-x vacio-icono"></i>
+              <p>No hay pedidos registrados en este dispositivo.</p>
+              <button type="button" class="btn-primary" (click)="pestanaActiva = 'catalogo'">
+                <i class="bi bi-plus-lg"></i> Crear Primer Pedido
+              </button>
+            </div>
+          } @else {
+            <div class="grid-historial">
+              @for (pedido of historialPedidos; track pedido.id) {
+                <article class="card-historial">
+                  <div class="hist-header">
+                    <div>
+                      <span class="hist-id">Pedido #{{ pedido.id }}</span>
+                      <span class="hist-fecha">{{ pedido.fecha | date: 'dd/MM/yyyy HH:mm' }}</span>
+                    </div>
+                    <div class="hist-badges">
+                      <span class="tag-estado" [ngClass]="pedido.estado.toLowerCase()">
+                        {{ pedido.estado }}
+                      </span>
+                      <span class="tag-origen">{{ pedido.origen }}</span>
+                    </div>
+                  </div>
+
+                  <div class="hist-body">
+                    <span class="hist-items-count">
+                      <i class="bi bi-box-seam"></i> {{ pedido.lineas.length }} producto(s)
+                    </span>
+                    <strong class="hist-total">S/ {{ pedido.total.toFixed(2) }}</strong>
+                  </div>
+
+                  <div class="hist-footer">
+                    <button
+                      type="button"
+                      class="btn-detalle"
+                      (click)="verDetalle(pedido)"
+                    >
+                      <i class="bi bi-eye"></i> Ver Detalle
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-eliminar-hist"
+                      (click)="eliminarPedido(pedido.id)"
+                      title="Eliminar pedido local"
+                    >
+                      <i class="bi bi-trash3"></i>
+                    </button>
+                  </div>
+                </article>
+              }
+            </div>
+          }
+
+          <!-- MODAL DE DETALLE DE PEDIDO -->
+          @if (pedidoDetalle) {
+            <div class="modal-backdrop" (click)="cerrarDetalle()">
+              <div class="modal-card" (click)="$event.stopPropagation()">
+                <div class="modal-header">
+                  <h3>Detalle de Pedido #{{ pedidoDetalle.id }}</h3>
+                  <button type="button" class="btn-close-modal" (click)="cerrarDetalle()" title="Cerrar">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </div>
+
+                <div class="modal-body">
+                  <div class="detalle-meta-grid">
+                    <div>
+                      <span class="meta-label">Fecha y Hora:</span>
+                      <p class="meta-value">{{ pedidoDetalle.fecha | date: 'medium' }}</p>
+                    </div>
+                    <div>
+                      <span class="meta-label">Origen de Registro:</span>
+                      <p class="meta-value">{{ pedidoDetalle.origen }}</p>
+                    </div>
+                    <div>
+                      <span class="meta-label">Estado de Sincronización:</span>
+                      <p class="meta-value">
+                        <span class="tag-estado pendiente">{{ pedidoDetalle.estado }}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <h4>Productos del Pedido:</h4>
+                  <ul class="lineas-detalle">
+                    @for (lin of pedidoDetalle.lineas; track lin.productoId) {
+                      <li>
+                        <div class="lin-info">
+                          <strong>{{ lin.producto }}</strong>
+                          <span class="lin-unit">{{ lin.cantidad }} und. × S/ {{ lin.precioUnitario.toFixed(2) }}</span>
+                        </div>
+                        <strong class="lin-sub">S/ {{ lin.subtotal.toFixed(2) }}</strong>
+                      </li>
+                    }
+                  </ul>
+
+                  <div class="modal-total-row">
+                    <span>Monto Total:</span>
+                    <strong>S/ {{ pedidoDetalle.total.toFixed(2) }}</strong>
+                  </div>
+                </div>
+
+                <div class="modal-footer">
+                  <button type="button" class="btn-primary" (click)="cerrarDetalle()">
+                    Cerrar Detalle
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+        </section>
+      }
+
+    </div>
+  </main>
+
+  <!-- PIE DE PÁGINA LIMPIO Y PROFESIONAL -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <p>Backus Ventas · Portal Comercial y Distribución</p>
+    </div>
+  </footer>
 </div>

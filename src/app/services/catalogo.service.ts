@@ -9,6 +9,25 @@ export interface Producto {
   precio: number;
 }
 
+export interface LineaPedido {
+  productoId: number;
+  producto: string;
+  precioUnitario: number;
+  cantidad: number;
+  subtotal: number;
+}
+
+export type EstadoPedido = 'PENDIENTE' | 'SINCRONIZADO' | 'ERROR';
+
+export interface Pedido {
+  id?: number;
+  fecha: string;
+  lineas: LineaPedido[];
+  total: number;
+  estado: EstadoPedido;
+  origen: 'ONLINE' | 'OFFLINE';
+}
+
 @Injectable({
   providedIn: 'root'
 })

@@ -13,8 +13,32 @@
   },
   {
     "id": 3,
-    "producto": "Cusqueña 620 ml",
+    "producto": "Cusqueña Dorada 620 ml",
     "categoria": "Cerveza",
     "precio": 9.00
+  },
+  {
+    "id": 4,
+    "producto": "Cusqueña Trigo 620 ml",
+    "categoria": "Cerveza",
+    "precio": 9.50
+  },
+  {
+    "id": 5,
+    "producto": "San Mateo 600 ml",
+    "categoria": "Bebidas",
+    "precio": 2.50
+  },
+  {
+    "id": 6,
+    "producto": "Maltin Power 330 ml",
+    "categoria": "Bebidas",
+    "precio": 3.00
+  },
+  {
+    "id": 7,
+    "producto": "Guaraná Backus 500 ml",
+    "categoria": "Bebidas",
+    "precio": 3.50
   }
 ]
