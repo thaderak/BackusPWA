@@ -24,26 +24,25 @@ export class App implements OnInit {
   private storageService = inject(StorageService);
   private cdr = inject(ChangeDetectorRef);
 
-  // Navegación de pestañas
-  pestanaActiva: 'catalogo' | 'carrito' | 'historial' = 'catalogo';
+  // Navegación de pestañas (Integra las vistas del reto conservando el proyecto base)
+  pestanaActiva: 'catalogo' | 'carrito' | 'historial' | 'mensaje' = 'catalogo';
 
-  // Catálogo y filtros
+  // --- PROPIEDADES DEL PROYECTO BASE (Páginas 26-27 del primer PDF) ---
   catalogo: Producto[] = [];
+  productoSeleccionadoId: number | null = null;
+  mensajeTexto: string = '';
+  mensajeNotificacion: string = '';
+  estadoPedidoNotif: string = '';
+
+  // --- PROPIEDADES DE LA MEJORA INCREMENTAL (Páginas 3-5 del segundo PDF) ---
   cargandoCatalogo: boolean = true;
   terminoBusqueda: string = '';
   categoriaSeleccionada: string = 'Todas';
   categoriasDisponibles: string[] = ['Todas', 'Cerveza', 'Bebidas'];
   cantidadesCatalogo: { [productoId: number]: number } = {};
-
-  // Carrito de compras
   carrito: LineaPedido[] = [];
-
-  // Historial de pedidos
-  historialPedidos: Pedido[] = [];
-  pedidoDetalle: Pedido | null = null;
-
-  // Mensajes de estado
-  mensajeNotificacion: string = '';
+  historialPedidos: any[] = [];
+  pedidoDetalle: any | null = null;
   tipoNotificacion: 'exito' | 'error' | 'info' = 'info';
 
   constructor() {
@@ -62,12 +61,15 @@ export class App implements OnInit {
     await this.cargarHistorial();
   }
 
-  // --- GESTIÓN DEL CATÁLOGO ---
+  // --- CARGA DE CATÁLOGO BASE ---
   cargarCatalogo(): void {
     this.cargandoCatalogo = true;
     this.catalogoService.obtenerCatalogo().subscribe({
       next: (data: Producto[]) => {
         this.catalogo = data;
+        if (data && data.length > 0) {
+          this.productoSeleccionadoId = data[0].id;
+        }
         data.forEach((p) => {
           if (!this.cantidadesCatalogo[p.id]) {
             this.cantidadesCatalogo[p.id] = 1;
@@ -79,11 +81,73 @@ export class App implements OnInit {
       error: (err: unknown) => {
         console.error('Error al cargar catálogo:', err);
         this.cargandoCatalogo = false;
-        this.mostrarMensaje('No se pudo cargar el catálogo. Verifique su conexión.', 'error');
         this.cdr.markForCheck();
       }
     });
   }
+
+  // --- FUNCIONALIDADES DEL PROYECTO BASE (CONSERVADAS AL 100%) ---
+
+  /**
+   * Registro de pedido simple del proyecto base (Fase 8, pág. 27).
+   */
+  async registrarPedido(): Promise<void> {
+    if (!this.catalogo || this.catalogo.length === 0) {
+      this.mostrarNotificacion('El catálogo aún está cargando.', 'ESPERA', 'info');
+      return;
+    }
+
+    const prod =
+      this.catalogo.find((p) => p.id === Number(this.productoSeleccionadoId)) ||
+      this.catalogo[0];
+
+    if (!prod) return;
+
+    const pedido = {
+      tipo: 'pedido_simple',
+      producto: prod.producto,
+      precio: prod.precio,
+      cantidad: 1,
+      total: prod.precio,
+      origen: this.online ? 'ONLINE' : 'OFFLINE'
+    };
+
+    if (this.online) {
+      this.mostrarNotificacion('Pedido registrado exitosamente en modo local.', 'ENVIADO', 'exito');
+    } else {
+      await this.storageService.guardarPedido(pedido);
+      this.mostrarNotificacion('Pedido guardado localmente en IndexedDB.', 'PENDIENTE', 'exito');
+    }
+
+    await this.cargarHistorial();
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Guardado de mensaje del vendedor del proyecto base (Fase 8, pág. 27).
+   */
+  async guardarMensaje(): Promise<void> {
+    if (!this.mensajeTexto.trim()) return;
+
+    const mensajeObj = {
+      tipo: 'mensaje',
+      contenido: this.mensajeTexto,
+      origen: this.online ? 'ONLINE' : 'OFFLINE'
+    };
+
+    if (this.online) {
+      this.mostrarNotificacion('Mensaje procesado correctamente.', 'PROCESADO', 'exito');
+    } else {
+      await this.storageService.guardarPedido(mensajeObj);
+      this.mostrarNotificacion('Mensaje guardado localmente en IndexedDB.', 'PENDIENTE', 'exito');
+    }
+
+    this.mensajeTexto = '';
+    await this.cargarHistorial();
+    this.cdr.markForCheck();
+  }
+
+  // --- FUNCIONALIDADES DE LA MEJORA INCREMENTAL (PÁGINAS 1-5) ---
 
   get productosFiltrados(): Producto[] {
     const busqueda = this.terminoBusqueda.trim().toLowerCase();
@@ -116,12 +180,12 @@ export class App implements OnInit {
     }
   }
 
-  // --- GESTIÓN DEL CARRITO ---
+  // Carrito multi-producto (Reglas BV-03 y BV-04)
   agregarAlCarrito(producto: Producto): void {
     const cantidad = Number(this.cantidadesCatalogo[producto.id]);
 
     if (!Number.isInteger(cantidad) || cantidad <= 0) {
-      this.mostrarMensaje('La cantidad debe ser un número entero mayor a 0.', 'error');
+      this.mostrarNotificacion('La cantidad debe ser un entero mayor a cero.', 'ERROR', 'error');
       return;
     }
 
@@ -142,7 +206,7 @@ export class App implements OnInit {
     }
 
     this.cantidadesCatalogo[producto.id] = 1;
-    this.mostrarMensaje(`Se agregaron ${cantidad} unidad(es) de ${producto.producto} al pedido.`, 'info');
+    this.mostrarNotificacion(`Agregadas ${cantidad} unidad(es) de ${producto.producto} al carrito.`, 'INFO', 'info');
     this.cdr.markForCheck();
   }
 
@@ -162,13 +226,11 @@ export class App implements OnInit {
 
   eliminarLineaCarrito(productoId: number): void {
     this.carrito = this.carrito.filter((i) => i.productoId !== productoId);
-    this.mostrarMensaje('Producto retirado del pedido.', 'info');
     this.cdr.markForCheck();
   }
 
   vaciarCarrito(): void {
     this.carrito = [];
-    this.mostrarMensaje('El pedido actual ha sido vaciado.', 'info');
     this.cdr.markForCheck();
   }
 
@@ -181,16 +243,16 @@ export class App implements OnInit {
     return Number(total.toFixed(2));
   }
 
-  // --- PERSISTENCIA Y REGISTRO DE PEDIDOS ---
+  // Confirmar pedido estructurado (Reglas BV-05, BV-06 y BV-07)
   async confirmarPedido(): Promise<void> {
     if (this.carrito.length === 0) {
-      this.mostrarMensaje('El pedido está vacío. Agregue productos antes de registrar.', 'error');
+      this.mostrarNotificacion('El carrito está vacío. Agregue productos.', 'ERROR', 'error');
       return;
     }
 
     for (const item of this.carrito) {
       if (!Number.isInteger(item.cantidad) || item.cantidad <= 0) {
-        this.mostrarMensaje(`Cantidad inválida detectada en ${item.producto}.`, 'error');
+        this.mostrarNotificacion(`Cantidad inválida en ${item.producto}.`, 'ERROR', 'error');
         return;
       }
     }
@@ -212,9 +274,9 @@ export class App implements OnInit {
         ? 'Registrado con conexión'
         : 'Registrado fuera de línea';
 
-      this.mostrarMensaje(
-        `Pedido #${idGenerado} registrado con éxito en almacenamiento local. ` +
-        `Estado: PENDIENTE de sincronización (${modoTexto}).`,
+      this.mostrarNotificacion(
+        `Pedido #${idGenerado} registrado con éxito en IndexedDB. Estado: PENDIENTE de sincronización (${modoTexto}).`,
+        'PENDIENTE',
         'exito'
       );
 
@@ -222,25 +284,26 @@ export class App implements OnInit {
       this.cdr.markForCheck();
     } catch (error) {
       console.error('Error al persistir pedido:', error);
-      this.mostrarMensaje(
-        'Error de persistencia: No se pudo registrar el pedido en almacenamiento local. Sus productos se mantienen en el carrito.',
+      this.mostrarNotificacion(
+        'Error de persistencia: No se pudo guardar el pedido en IndexedDB.',
+        'ERROR',
         'error'
       );
       this.cdr.markForCheck();
     }
   }
 
-  // --- HISTORIAL Y DETALLE ---
+  // --- HISTORIAL Y CONSULTA DE DETALLES ---
   async cargarHistorial(): Promise<void> {
     try {
       this.historialPedidos = await this.storageService.listarPedidos();
       this.cdr.markForCheck();
     } catch (error) {
-      console.error('Error al recuperar historial:', error);
+      console.error('Error al listar historial:', error);
     }
   }
 
-  verDetalle(pedido: Pedido): void {
+  verDetalle(pedido: any): void {
     this.pedidoDetalle = pedido;
     this.cdr.markForCheck();
   }
@@ -252,23 +315,23 @@ export class App implements OnInit {
 
   async eliminarPedido(id?: number): Promise<void> {
     if (!id) return;
-    if (confirm(`¿Confirma eliminar el pedido #${id} del almacenamiento local?`)) {
+    if (confirm(`¿Confirma eliminar el registro #${id} del almacenamiento local?`)) {
       try {
         await this.storageService.eliminarPedido(id);
         if (this.pedidoDetalle?.id === id) {
           this.pedidoDetalle = null;
         }
         await this.cargarHistorial();
-        this.mostrarMensaje(`Pedido #${id} eliminado del almacenamiento local.`, 'info');
+        this.mostrarNotificacion(`Registro #${id} eliminado de IndexedDB.`, 'ELIMINADO', 'info');
       } catch (error) {
         console.error('Error al eliminar:', error);
-        this.mostrarMensaje('No se pudo eliminar el pedido de IndexedDB.', 'error');
       }
     }
   }
 
-  mostrarMensaje(texto: string, tipo: 'exito' | 'error' | 'info' = 'info'): void {
+  mostrarNotificacion(texto: string, estadoTag: string = '', tipo: 'exito' | 'error' | 'info' = 'info'): void {
     this.mensajeNotificacion = texto;
+    this.estadoPedidoNotif = estadoTag;
     this.tipoNotificacion = tipo;
     this.cdr.markForCheck();
   }

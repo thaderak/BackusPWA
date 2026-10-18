@@ -7,7 +7,7 @@
         <p class="subtitle">Portal Comercial de Distribución</p>
       </div>
 
-      <!-- NUEVO DISEÑO DE ESTADO DE CONEXIÓN MODERNO -->
+      <!-- INDICADOR DE ESTADO LED MODERNO -->
       <div class="status-badge" [class.is-online]="online" [class.is-offline]="!online">
         <span class="status-pulse"></span>
         <div class="status-info">
@@ -18,7 +18,7 @@
     </div>
   </header>
 
-  <!-- NAVEGACIÓN POR PESTAÑAS RESPONSIVE -->
+  <!-- NAVEGACIÓN DE PESTAÑAS (INTEGRA PROYECTO BASE Y MEJORAS) -->
   <nav class="nav-tabs">
     <div class="nav-container">
       <button
@@ -56,10 +56,21 @@
           <span class="badge-count secondary">{{ historialPedidos.length }}</span>
         }
       </button>
+
+      <!-- PESTAÑA DE REGISTRO RÁPIDO / MENSAJE (CONSERVADA DEL PROYECTO BASE) -->
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="pestanaActiva === 'mensaje'"
+        (click)="pestanaActiva = 'mensaje'"
+      >
+        <i class="bi bi-chat-left-text"></i>
+        <span>Mensajes</span>
+      </button>
     </div>
   </nav>
 
-  <!-- NOTIFICACIÓN GLOBAL -->
+  <!-- NOTIFICACIÓN GLOBAL CON ESTADO DE SINCRONIZACIÓN -->
   @if (mensajeNotificacion) {
     <div class="alerta-wrapper">
       <div class="alerta-box" [ngClass]="tipoNotificacion">
@@ -71,7 +82,12 @@
           } @else {
             <i class="bi bi-info-circle-fill alerta-icono"></i>
           }
-          <p>{{ mensajeNotificacion }}</p>
+          <div>
+            <p>{{ mensajeNotificacion }}</p>
+            @if (estadoPedidoNotif) {
+              <small class="estado-tag-pill">Estado: <strong>{{ estadoPedidoNotif }}</strong></small>
+            }
+          </div>
         </div>
         <button type="button" class="btn-cerrar-alerta" (click)="mensajeNotificacion = ''" title="Cerrar">
           <i class="bi bi-x-lg"></i>
@@ -80,11 +96,11 @@
     </div>
   }
 
-  <!-- CONTENIDO PRINCIPAL FLUIDO Y RESPONSIVE -->
+  <!-- CONTENIDO PRINCIPAL -->
   <main class="main-content">
     <div class="content-container">
 
-      <!-- ==================== PESTAÑA 1: CATÁLOGO ==================== -->
+      <!-- ==================== PESTAÑA 1: CATÁLOGO INTELIGENTE ==================== -->
       @if (pestanaActiva === 'catalogo') {
         <section class="seccion-catalogo">
           <!-- BARRA DE BÚSQUEDA Y FILTROS -->
@@ -98,7 +114,7 @@
                 [(ngModel)]="terminoBusqueda"
               />
               @if (terminoBusqueda) {
-                <button type="button" class="btn-clear" (click)="terminoBusqueda = ''" title="Borrar búsqueda">
+                <button type="button" class="btn-clear" (click)="terminoBusqueda = ''" title="Limpiar">
                   <i class="bi bi-x-circle-fill"></i>
                 </button>
               }
@@ -133,7 +149,7 @@
             </div>
           }
 
-          <!-- GRID DE PRODUCTOS RESPONSIVE -->
+          <!-- GRID DE PRODUCTOS -->
           @if (cargandoCatalogo) {
             <div class="mensaje-vacio">
               <div class="spinner"></div>
@@ -313,55 +329,68 @@
       @if (pestanaActiva === 'historial') {
         <section class="seccion-historial">
           <div class="seccion-titulo-row">
-            <h2>Historial de Pedidos Locales</h2>
+            <h2>Historial de Registros Locales (IndexedDB)</h2>
             <span class="items-count-badge">{{ historialPedidos.length }} registrado(s)</span>
           </div>
 
           @if (historialPedidos.length === 0) {
             <div class="mensaje-vacio">
               <i class="bi bi-journal-x vacio-icono"></i>
-              <p>No hay pedidos registrados en este dispositivo.</p>
+              <p>No hay registros almacenados en este dispositivo.</p>
               <button type="button" class="btn-primary" (click)="pestanaActiva = 'catalogo'">
                 <i class="bi bi-plus-lg"></i> Crear Primer Pedido
               </button>
             </div>
           } @else {
             <div class="grid-historial">
-              @for (pedido of historialPedidos; track pedido.id) {
+              @for (registro of historialPedidos; track registro.id) {
                 <article class="card-historial">
                   <div class="hist-header">
                     <div>
-                      <span class="hist-id">Pedido #{{ pedido.id }}</span>
-                      <span class="hist-fecha">{{ pedido.fecha | date: 'dd/MM/yyyy HH:mm' }}</span>
+                      <span class="hist-id">
+                        {{ registro.tipo === 'mensaje' ? 'Mensaje' : 'Pedido' }} #{{ registro.id }}
+                      </span>
+                      <span class="hist-fecha">{{ registro.fecha | date: 'dd/MM/yyyy HH:mm' }}</span>
                     </div>
                     <div class="hist-badges">
-                      <span class="tag-estado" [ngClass]="pedido.estado.toLowerCase()">
-                        {{ pedido.estado }}
+                      <span class="tag-estado" [ngClass]="(registro.estado || 'pendiente').toLowerCase()">
+                        {{ registro.estado || 'PENDIENTE' }}
                       </span>
-                      <span class="tag-origen">{{ pedido.origen }}</span>
+                      <span class="tag-origen">{{ registro.origen || 'LOCAL' }}</span>
                     </div>
                   </div>
 
                   <div class="hist-body">
-                    <span class="hist-items-count">
-                      <i class="bi bi-box-seam"></i> {{ pedido.lineas.length }} producto(s)
-                    </span>
-                    <strong class="hist-total">S/ {{ pedido.total.toFixed(2) }}</strong>
+                    @if (registro.tipo === 'mensaje') {
+                      <p class="hist-msg-text">"{{ registro.contenido }}"</p>
+                    } @else if (registro.lineas) {
+                      <span class="hist-items-count">
+                        <i class="bi bi-box-seam"></i> {{ registro.lineas.length }} producto(s)
+                      </span>
+                      <strong class="hist-total">S/ {{ registro.total.toFixed(2) }}</strong>
+                    } @else {
+                      <span class="hist-items-count">
+                        <i class="bi bi-box-seam"></i> {{ registro.producto }} ({{ registro.cantidad }} und.)
+                      </span>
+                      <strong class="hist-total">S/ {{ (registro.precio || 0).toFixed(2) }}</strong>
+                    }
                   </div>
 
                   <div class="hist-footer">
-                    <button
-                      type="button"
-                      class="btn-detalle"
-                      (click)="verDetalle(pedido)"
-                    >
-                      <i class="bi bi-eye"></i> Ver Detalle
-                    </button>
+                    @if (registro.lineas && registro.lineas.length > 0) {
+                      <button
+                        type="button"
+                        class="btn-detalle"
+                        (click)="verDetalle(registro)"
+                      >
+                        <i class="bi bi-eye"></i> Ver Detalle
+                      </button>
+                    }
                     <button
                       type="button"
                       class="btn-eliminar-hist"
-                      (click)="eliminarPedido(pedido.id)"
-                      title="Eliminar pedido local"
+                      (click)="eliminarPedido(registro.id)"
+                      title="Eliminar del almacenamiento local"
                     >
                       <i class="bi bi-trash3"></i>
                     </button>
@@ -393,7 +422,7 @@
                       <p class="meta-value">{{ pedidoDetalle.origen }}</p>
                     </div>
                     <div>
-                      <span class="meta-label">Estado de Sincronización:</span>
+                      <span class="meta-label">Estado:</span>
                       <p class="meta-value">
                         <span class="tag-estado pendiente">{{ pedidoDetalle.estado }}</span>
                       </p>
@@ -430,10 +459,54 @@
         </section>
       }
 
+      <!-- ==================== PESTAÑA 4: MENSAJES Y REGISTRO RÁPIDO (PROYECTO BASE) ==================== -->
+      @if (pestanaActiva === 'mensaje') {
+        <section class="seccion-base">
+          <h2>Mensaje del Vendedor y Registro Directo</h2>
+          <p class="txt-sub">Módulo conservado del proyecto base para registro unitario y notas de campo.</p>
+
+          <div class="base-grid">
+            <!-- REGISTRO DIRECTO DE PRODUCTO -->
+            <div class="card-base-item">
+              <h3>Registro Rápido de Producto</h3>
+              <div class="form-group">
+                <label for="prodSelectBase">Seleccionar Producto:</label>
+                <select id="prodSelectBase" class="input-base" [(ngModel)]="productoSeleccionadoId">
+                  @for (prod of catalogo; track prod.id) {
+                    <option [ngValue]="prod.id">{{ prod.producto }} - S/ {{ prod.precio.toFixed(2) }}</option>
+                  }
+                </select>
+              </div>
+              <button type="button" class="btn-primary" (click)="registrarPedido()">
+                <i class="bi bi-bag-check"></i> Registrar Pedido Directo
+              </button>
+            </div>
+
+            <!-- ENVÍO DE MENSAJE -->
+            <div class="card-base-item">
+              <h3>Mensaje del Vendedor</h3>
+              <div class="form-group">
+                <label for="mensajeInput">Escriba su mensaje o nota de campo:</label>
+                <input
+                  id="mensajeInput"
+                  type="text"
+                  class="input-base"
+                  placeholder="Escriba un mensaje..."
+                  [(ngModel)]="mensajeTexto"
+                />
+              </div>
+              <button type="button" class="btn-secondary-base" (click)="guardarMensaje()">
+                <i class="bi bi-send"></i> Guardar Mensaje
+              </button>
+            </div>
+          </div>
+        </section>
+      }
+
     </div>
   </main>
 
-  <!-- PIE DE PÁGINA LIMPIO Y PROFESIONAL -->
+  <!-- PIE DE PÁGINA LIMPIO -->
   <footer class="app-footer">
     <div class="footer-container">
       <p>Backus Ventas · Portal Comercial y Distribución</p>

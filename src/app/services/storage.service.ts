@@ -1,5 +1,23 @@
 import { Injectable } from '@angular/core';
-import { Pedido } from './catalogo.service';
+
+export interface LineaPedido {
+  productoId: number;
+  producto: string;
+  precioUnitario: number;
+  cantidad: number;
+  subtotal: number;
+}
+
+export type EstadoPedido = 'PENDIENTE' | 'SINCRONIZADO' | 'ERROR';
+
+export interface Pedido {
+  id?: number;
+  fecha: string;
+  lineas: LineaPedido[];
+  total: number;
+  estado: EstadoPedido;
+  origen: 'ONLINE' | 'OFFLINE';
+}
 
 @Injectable({
   providedIn: 'root'
@@ -31,79 +49,85 @@ export class StorageService {
     });
   }
 
-  async guardarPedido(pedido: Omit<Pedido, 'id'>): Promise<number> {
+  /**
+   * Guarda cualquier registro en IndexedDB (conserva compatibilidad total
+   * con pedidos simples, mensajes del vendedor y pedidos estructurados del nuevo reto).
+   */
+  async guardarPedido(registro: any): Promise<number> {
     try {
       const db = await this.abrirDB();
       return new Promise<number>((resolve, reject) => {
         const transaction = db.transaction(this.storeName, 'readwrite');
         const store = transaction.objectStore(this.storeName);
 
-        const request = store.add(pedido);
+        const nuevoRegistro = {
+          ...registro,
+          fecha: registro.fecha || new Date().toISOString(),
+          estado: registro.estado || 'PENDIENTE'
+        };
+
+        const request = store.add(nuevoRegistro);
 
         request.onsuccess = () => {
-          const idGenerado = request.result as number;
-          console.log('✅ Pedido estructurado guardado exitosamente en IndexedDB:', {
-            id: idGenerado,
-            ...pedido
-          });
-          resolve(idGenerado);
+          const id = request.result as number;
+          console.log('✅ Registro guardado exitosamente en IndexedDB:', { id, ...nuevoRegistro });
+          resolve(id);
         };
 
         request.onerror = () => {
-          console.error('❌ Error al insertar pedido en IndexedDB:', request.error);
-          reject(new Error('No se pudo guardar el pedido en IndexedDB'));
+          console.error('❌ Error al guardar registro en IndexedDB:', request.error);
+          reject(request.error);
         };
 
         transaction.onerror = () => {
-          console.error('❌ Error en la transacción de IndexedDB:', transaction.error);
-          reject(new Error('Fallo en la transacción de almacenamiento local'));
+          console.error('❌ Error en transacción de IndexedDB:', transaction.error);
+          reject(transaction.error);
         };
       });
     } catch (error) {
-      console.error('Error general al guardar en StorageService:', error);
+      console.error('Error general en StorageService:', error);
       throw error;
     }
   }
 
-  async listarPedidos(): Promise<Pedido[]> {
+  /**
+   * Lista todos los registros persistidos ordenados del más reciente al más antiguo.
+   */
+  async listarPedidos(): Promise<any[]> {
     try {
       const db = await this.abrirDB();
-      return new Promise<Pedido[]>((resolve, reject) => {
+      return new Promise<any[]>((resolve, reject) => {
         const transaction = db.transaction(this.storeName, 'readonly');
         const store = transaction.objectStore(this.storeName);
         const request = store.getAll();
 
         request.onsuccess = () => {
-          const resultado = (request.result as Pedido[]) || [];
-          // Ordenar del más reciente al más antiguo
-          resultado.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
-          resolve(resultado);
+          const items = (request.result || []) as any[];
+          items.sort((a, b) => new Date(b.fecha || 0).getTime() - new Date(a.fecha || 0).getTime());
+          resolve(items);
         };
 
-        request.onerror = () => {
-          console.error('Error al consultar pedidos en IndexedDB:', request.error);
-          reject(new Error('No se pudieron recuperar los pedidos locales'));
-        };
+        request.onerror = () => reject(request.error);
       });
     } catch (error) {
-      console.error('Error general al listar en StorageService:', error);
+      console.error('Error al listar pedidos en StorageService:', error);
       return [];
     }
   }
 
-  async obtenerPedido(id: number): Promise<Pedido | undefined> {
+  async obtenerPedido(id: number): Promise<any | undefined> {
     try {
       const db = await this.abrirDB();
-      return new Promise<Pedido | undefined>((resolve, reject) => {
+      return new Promise<any | undefined>((resolve, reject) => {
         const transaction = db.transaction(this.storeName, 'readonly');
         const store = transaction.objectStore(this.storeName);
         const request = store.get(id);
 
-        request.onsuccess = () => resolve(request.result as Pedido | undefined);
+        request.onsuccess = () => resolve(request.result);
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
-      console.error('Error al obtener pedido por ID:', error);
+      console.error('Error al obtener pedido en StorageService:', error);
       return undefined;
     }
   }
@@ -120,7 +144,7 @@ export class StorageService {
         request.onerror = () => reject(request.error);
       });
     } catch (error) {
-      console.error('Error al eliminar pedido:', error);
+      console.error('Error al eliminar en StorageService:', error);
       throw error;
     }
   }
